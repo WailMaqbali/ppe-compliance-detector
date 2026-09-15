@@ -84,3 +84,30 @@ Dataset citation note: same underlying Roboflow Universe dataset
 (`roboflow-universe-projects/construction-site-safety`, v28) as originally specified; only
 the GitHub mirror used to obtain the files differs from the one named in the task. Both
 facts are recorded in the README citation.
+
+## EDA finding: pre-tiled mosaic images
+
+While building `notebooks/01_eda.ipynb`, sample annotated images revealed that a
+meaningful subset of the dataset's source images are themselves 2x2 photo mosaics --
+four unrelated construction-site photos combined into a single image file at Roboflow
+export time, each quadrant separately annotated. Labels align correctly to each
+sub-photo's content (verified visually), so this doesn't break training, but it explains
+the unusually high mean of ~14.2 boxes/image on the train split and means the model is
+exposed to an artificial four-panel layout during training that it will not see at real
+inference time. Documented in the README dataset section and MODEL_CARD limitations.
+
+## Training complete
+
+Flagship model: YOLOv8s, fine-tuned via `python -m src.train --model yolov8s.pt --epochs
+200 --patience 30 --imgsz 640 --batch -1 --name flagship_yolov8s`. Ultralytics AutoBatch
+selected batch size 7 (targeting 60% of the shared 8GB GPU's memory, since a few hundred
+MB were already in use by other processes on this machine). Ran the **full 200 epochs**
+(patience-based early stopping never triggered -- validation mAP kept finding marginal new
+bests through the run) in **1.637 hours** on the RTX 4060 Ti. Final validation-split
+(114 images) metrics: precision 0.910, recall 0.809, mAP50 0.858, mAP50-95 0.599.
+Best checkpoint copied to `models/best.pt` (gitignored; regenerate via the command above).
+
+Lightweight model: YOLOv8n, fine-tuned the same way (`--model yolov8n.pt ... --name
+lite_yolov8n --out models/best_lite.pt`) immediately after, for the webcam/live-inference
+path per the task's cross-device requirement -- see README "Flagship vs. lightweight
+model." Real numbers for this run recorded once it completes.
