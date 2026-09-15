@@ -11,3 +11,5 @@ venv/
 *.egg-info/
 .DS_Store
 temp_dataset/
+*.log
+
