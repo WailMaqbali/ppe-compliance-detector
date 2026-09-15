@@ -110,4 +110,31 @@ Best checkpoint copied to `models/best.pt` (gitignored; regenerate via the comma
 Lightweight model: YOLOv8n, fine-tuned the same way (`--model yolov8n.pt ... --name
 lite_yolov8n --out models/best_lite.pt`) immediately after, for the webcam/live-inference
 path per the task's cross-device requirement -- see README "Flagship vs. lightweight
-model." Real numbers for this run recorded once it completes.
+model." Ran the full 200 epochs in **1.005 hours**. Final validation-split metrics:
+precision 0.890, recall 0.768, mAP50 0.823, mAP50-95 0.534 -- notably closer to the
+flagship's validation numbers than expected for a model with 3.5x fewer parameters
+(3.0M vs 11.1M) and 3.5x fewer GFLOPs (8.1 vs 28.5).
+
+Test-set evaluation for both models (`python -m src.evaluate --split test`):
+
+| Model | Params | GFLOPs | Precision | Recall | mAP50 | mAP50-95 |
+|---|---|---|---|---|---|---|
+| YOLOv8s (flagship) | 11.1M | 28.5 | 0.924 | 0.776 | 0.832 | 0.545 |
+| YOLOv8n (lite) | 3.0M | 8.1 | 0.894 | 0.721 | 0.776 | 0.480 |
+
+Total training time for both models: 1.637 + 1.005 = 2.64 hours, well inside the 2-5 hour
+target for this dataset size.
+
+Attempted a small-batch (20-image) GPU inference-speed comparison between the two models
+out of curiosity; the result was noisy and inconclusive (lite measured *slower* than
+flagship in one run: 77.8 vs 100.2 FPS), almost certainly because at this scale on a
+desktop GPU, Python-side overhead (result plotting, function call overhead) dominates
+actual model compute time for both models -- not a meaningful signal either way. Not
+reported in the README as a real result; the params/GFLOPs comparison above is the honest,
+architecture-level basis for the "lite model is lighter" claim, since this session has no
+way to actually benchmark on the target M1 MacBook Air.
+
+Both training runs' full console output is discarded (train_flagship.log / train_lite.log
+were temporary, gitignored via `*.log`) -- the epoch-by-epoch mAP progression and final
+summaries above were extracted from them during the session and are captured here and in
+models/*_metrics.json (also gitignored; regenerate via `python -m src.evaluate`).
