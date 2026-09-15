@@ -73,6 +73,35 @@ def plot_per_class_metrics(df: pd.DataFrame, out_path) -> None:
     plt.close(fig)
 
 
+def plot_pr_curve(metrics, out_path) -> None:
+    """Save a per-class precision-recall curve plot plus the mean across classes.
+
+    Args:
+        metrics: The ``DetMetrics`` object returned by ``YOLO.val()``.
+        out_path: Where to save the figure.
+    """
+    box = metrics.box
+    recall = box.px  # 1000-point recall axis, shared across classes
+    precision = box.prec_values  # (n_classes_with_ap, 1000)
+
+    fig, ax = plt.subplots(figsize=(8, 7))
+    for row_i, cls_idx in enumerate(box.ap_class_index):
+        ax.plot(recall, precision[row_i], linewidth=1, label=f"{CLASS_NAMES[cls_idx]} ({box.ap50[row_i]:.2f})")
+    ax.plot(
+        recall, precision.mean(axis=0), color="black", linewidth=3,
+        label=f"mean ({box.map50:.2f})",
+    )
+    ax.set_xlabel("Recall")
+    ax.set_ylabel("Precision")
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1.05)
+    ax.set_title("Precision-Recall curve by class (mAP50 in legend)")
+    ax.legend(loc="lower left", fontsize=8, ncol=2)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
 def plot_confusion_matrix(confusion_matrix: np.ndarray, out_path) -> None:
     """Save a heatmap of the raw (non-normalized) confusion matrix.
 
@@ -111,10 +140,15 @@ def main() -> None:
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
     model = YOLO(args.weights)
-    metrics = model.val(data=str(DATA_YAML), split=args.split, verbose=False, plots=False)
+    # plots=True is required for this Ultralytics version to actually populate
+    # metrics.confusion_matrix -- it stays all-zero with plots=False. We still ignore
+    # Ultralytics' own saved plots (written to the gitignored runs/ dir) and re-render
+    # our own into figures/ below, per the task's requirement for committed figures.
+    metrics = model.val(data=str(DATA_YAML), split=args.split, verbose=False, plots=True)
 
     df = per_class_table(metrics)
     plot_per_class_metrics(df, FIGURES_DIR / f"{args.out_prefix}_per_class_metrics.png")
+    plot_pr_curve(metrics, FIGURES_DIR / f"{args.out_prefix}_pr_curve.png")
     plot_confusion_matrix(
         metrics.confusion_matrix.matrix, FIGURES_DIR / f"{args.out_prefix}_confusion_matrix.png"
     )
