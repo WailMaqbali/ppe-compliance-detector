@@ -1,0 +1,13 @@
+data/
+models/
+runs/
+*.pt
+__pycache__/
+.ipynb_checkpoints/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+.DS_Store
+temp_dataset/
