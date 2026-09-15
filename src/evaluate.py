@@ -12,7 +12,9 @@ Run as a script:
 
 import argparse
 import json
+import random
 
+import cv2
 import matplotlib
 
 matplotlib.use("Agg")
@@ -22,7 +24,7 @@ import pandas as pd
 import seaborn as sns
 from ultralytics import YOLO
 
-from src.config import CLASS_NAMES, DATA_YAML, FIGURES_DIR, MODELS_DIR
+from src.config import CLASS_NAMES, DATA_DIR, DATA_YAML, FIGURES_DIR, MODELS_DIR, RANDOM_STATE
 
 
 def parse_args() -> argparse.Namespace:
@@ -134,6 +136,43 @@ def plot_confusion_matrix(confusion_matrix: np.ndarray, out_path) -> None:
     plt.close(fig)
 
 
+def plot_sample_detections(
+    model: YOLO, split: str = "test", n: int = 6, out_path=None, conf: float = 0.25
+) -> None:
+    """Save a grid of real model predictions on sample images from a split.
+
+    Args:
+        model: A loaded YOLO model.
+        split: Which split to sample from.
+        n: Number of sample images.
+        out_path: Where to save the figure.
+        conf: Confidence threshold for keeping a detection.
+    """
+    rng = random.Random(RANDOM_STATE)
+    image_paths = sorted((DATA_DIR / split / "images").glob("*.jpg"))
+    sample = rng.sample(image_paths, min(n, len(image_paths)))
+
+    cols = 3
+    rows = (len(sample) + cols - 1) // cols
+    fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 4 * rows))
+    axes = np.array(axes).reshape(-1)
+
+    for ax, img_path in zip(axes, sample):
+        result = model.predict(str(img_path), conf=conf, verbose=False)[0]
+        annotated = cv2.cvtColor(result.plot(), cv2.COLOR_BGR2RGB)
+        ax.imshow(annotated)
+        ax.axis("off")
+        ax.set_title(img_path.name, fontsize=8)
+
+    for ax in axes[len(sample):]:
+        ax.axis("off")
+
+    fig.suptitle(f"Sample detections ({split}, conf>={conf})", y=1.0)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main() -> None:
     """Evaluate a checkpoint, print a summary, and save figures + a metrics JSON."""
     args = parse_args()
@@ -149,6 +188,10 @@ def main() -> None:
     df = per_class_table(metrics)
     plot_per_class_metrics(df, FIGURES_DIR / f"{args.out_prefix}_per_class_metrics.png")
     plot_pr_curve(metrics, FIGURES_DIR / f"{args.out_prefix}_pr_curve.png")
+    plot_sample_detections(
+        model, split=args.split, n=6,
+        out_path=FIGURES_DIR / f"{args.out_prefix}_sample_detections.png",
+    )
     plot_confusion_matrix(
         metrics.confusion_matrix.matrix, FIGURES_DIR / f"{args.out_prefix}_confusion_matrix.png"
     )
