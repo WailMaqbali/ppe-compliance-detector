@@ -11,6 +11,12 @@ pyyaml>=6.0
 pytest>=8.0
 httpx>=0.27
 
+# Only needed to regenerate/run notebooks/01_eda.ipynb interactively.
+jupyter>=1.0
+nbformat>=5.10
+nbconvert>=7.16
+ipykernel>=6.29
+
 # --- Notes on installation ---
 # This file intentionally does NOT pin a CUDA-specific torch build (no "+cu121"-style
 # index URL) so it installs cleanly on both the CUDA training machine and an Apple
